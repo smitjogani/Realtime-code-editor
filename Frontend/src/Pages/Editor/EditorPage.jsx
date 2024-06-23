@@ -1,35 +1,53 @@
-import React, { useState } from 'react'
-import Client from "../../Components/Client/Client"
+import React, { useEffect, useRef, useState } from 'react';
+import Client from "../../Components/Client/Client";
 import Editor from '../../Components/Editor/Editor';
+import { initSocket } from "../../socket";
+import ACTIONS from "../../Actions";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import toast from 'react-hot-toast';
 
 const EditorPage = () => {
 
-  const [clients, setClients] = useState([
-    {
-      socketId: 1,
-      userName: 'Smit',
-    },
-    {
-      socketId: 2,
-      userName: 'Jay',
-    },
-    {
-      socketId: 3,
-      userName: 'Raj',
-    },
-    {
-      socketId: 1,
-      userName: 'Smit',
-    },
-    {
-      socketId: 2,
-      userName: 'Jay',
-    },
-    {
-      socketId: 3,
-      userName: 'Raj',
+  const [clients, setClients] = useState([]);
+
+  const socketRef = useRef(null);
+  const location = useLocation();
+  const reactNavigator = useNavigate();
+  const { roomId } = useParams();
+
+  const handleErrors = (e) => {
+    console.log('socket error', e);
+    toast.error("Connection Failed");
+    reactNavigator('/');
+  }
+
+  useEffect(() => {
+    const init = async () => {
+      socketRef.current = await initSocket();
+      socketRef.current.on('connect_error', (err) => handleErrors(err));
+      socketRef.current.on('connect_failed', (err) => handleErrors(err));
+
+      socketRef.current.emit(ACTIONS.JOIN, {
+        roomId,
+        userName: location.state?.userName,
+      });
+
+      //Listing for joined event
+      socketRef.current.on(ACTIONS.JOINED, ({ clients, userName, socketId }) => {
+        if (userName === location.state?.userName) {
+          toast.success(`${userName} joined the room.`);
+          console.log(`${userName} joined.`);
+
+          setClients(clients);
+        }
+      })
     }
-  ]);
+    init();
+  }, []);
+
+  if (!location.state) {
+    return <Navigate to="/" />
+  }
 
   return (
     <>
@@ -64,7 +82,7 @@ const EditorPage = () => {
           </div>
         </div>
         <div className="pt-2">
-          <Editor/>
+          <Editor />
         </div>
       </div>
     </>
